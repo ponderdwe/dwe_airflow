@@ -1,0 +1,19 @@
+# Environment — never commit secrets
+.env
+
+# Airflow logs — large and noisy, not tracked
+logs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Pulumi state — managed remotely
+pulumi/.pulumi/
+pulumi/venv/
+pulumi/__pycache__/
+pulumi/dwe-hydration.yaml
+
+# macOS
+.DS_Store

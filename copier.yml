@@ -1,0 +1,260 @@
+_dwe_hub:
+  hub_name: airflow
+  display_name: "Apache Airflow"
+  description: "Apache Airflow 3 workflow orchestration platform with CeleryExecutor"
+  icon: "wind"
+  git_providers:
+    - github
+    - gitlab
+  cloud_providers:
+    - azure
+    - aws
+  services:
+    - name: Airflow
+      description: "Airflow web UI + API — HTTP on port 8080, exposed via ALB on port 443"
+    - name: DNS
+      description: "DNS CNAME record pointing to the Airflow endpoint"
+      kg:
+        trigger_secret: DNS_NAME
+        properties:
+          hostname: DNS_NAME
+  depends_on: []
+  kg_pulumi_outputs:
+    url: url
+    asg_name: asg_name
+  ci_templates:
+    github: ci-templates/github.yaml
+    gitlab: ci-templates/gitlab.yaml
+  required_secrets:
+    # ── CI secrets: Azure ──────────────────────────────────────────────────────
+    - key: AZURE_CLIENT_ID
+      description: "Service principal client ID"
+      destination: ci
+      cloud_provider: azure
+    - key: AZURE_CLIENT_SECRET
+      description: "Service principal client secret"
+      destination: ci
+      cloud_provider: azure
+    - key: AZURE_TENANT_ID
+      description: "Azure AD tenant ID"
+      destination: ci
+      cloud_provider: azure
+    - key: AZURE_SUBSCRIPTION_ID
+      description: "Azure subscription ID"
+      destination: ci
+      cloud_provider: azure
+    - key: AZURE_STORAGE_ACCOUNT
+      description: "Storage account name for Pulumi state backend"
+      destination: ci
+      cloud_provider: azure
+    - key: PULUMI_AZURE_STATE
+      description: "Azure Blob Storage URL for Pulumi state, e.g. azblob://deploy-state/airflow-state"
+      destination: ci
+      cloud_provider: azure
+    - key: RESOURCE_GROUP
+      description: "Azure resource group name"
+      destination: ci
+      cloud_provider: azure
+    - key: KEY_VAULT_NAME
+      description: "Azure Key Vault holding the DWE_DEPLOY_AIRFLOW secret"
+      destination: ci
+      cloud_provider: azure
+    # ── CI secrets: AWS ────────────────────────────────────────────────────────
+    - key: AWS_ACCESS_KEY_ID
+      description: "AWS access key for Pulumi + ASG operations"
+      destination: ci
+      cloud_provider: aws
+    - key: AWS_SECRET_ACCESS_KEY
+      description: "AWS secret key for Pulumi + ASG operations"
+      destination: ci
+      cloud_provider: aws
+    - key: PULUMI_S3_STATE
+      description: "S3 URL for Pulumi state backend, e.g. s3://my-pulumi-state-bucket"
+      destination: ci
+      cloud_provider: aws
+    # ── Secrets Manager / Key Vault: DWE_DEPLOY_AIRFLOW ──────────────────────
+    - key: VNET_ID
+      description: "Azure VNet ID"
+      destination: secrets_manager
+      cloud_provider: azure
+    - key: APP_GW_SUBNET_ID
+      description: "Subnet ID for Application Gateway (Azure)"
+      destination: secrets_manager
+      cloud_provider: azure
+    - key: VM_SUBNET_ID
+      description: "Subnet ID for VM instances (Azure)"
+      destination: secrets_manager
+      cloud_provider: azure
+    - key: SSH_PUBLIC_KEY
+      description: "SSH public key for VM access (Azure)"
+      destination: secrets_manager
+      cloud_provider: azure
+    - key: DNS_ZONE_NAME
+      description: "Azure DNS zone name, e.g. myorg.com"
+      destination: secrets_manager
+      cloud_provider: azure
+    - key: DNS_RECORD_NAME
+      description: "DNS record name, e.g. airflow (resolves to airflow.myorg.com)"
+      destination: secrets_manager
+      cloud_provider: azure
+    - key: APP_GW_SSL_CERT_KEY_VAULT_ID
+      description: "Key Vault secret ID for TLS certificate (Azure)"
+      destination: secrets_manager
+      cloud_provider: azure
+    - key: VPC_ID
+      description: "VPC ID for EC2 and ALB (AWS)"
+      destination: secrets_manager
+      cloud_provider: aws
+    - key: ALB_SUBNET_IDS
+      description: "JSON array of subnet IDs for ALB, e.g. [\"subnet-aaa\",\"subnet-bbb\"] (AWS)"
+      destination: secrets_manager
+      cloud_provider: aws
+    - key: KEY_NAME
+      description: "EC2 key pair name for SSH access (AWS)"
+      destination: secrets_manager
+      cloud_provider: aws
+    - key: ROUTE53_ZONE_ID
+      description: "Route53 hosted zone ID (AWS)"
+      destination: secrets_manager
+      cloud_provider: aws
+    - key: DNS_NAME
+      description: "DNS record name for Airflow, e.g. airflow.myorg.com (AWS)"
+      destination: secrets_manager
+      cloud_provider: aws
+    - key: ACM_CERTIFICATE_ARN
+      description: "ACM certificate ARN for HTTPS on the ALB (AWS)"
+      destination: secrets_manager
+      cloud_provider: aws
+    - key: DB_HOST
+      description: "PostgreSQL server hostname (existing cluster)"
+      destination: secrets_manager
+    - key: DB_PASS
+      description: "PostgreSQL master password"
+      destination: secrets_manager
+    - key: AIRFLOW__CELERY__BROKER_URL
+      description: "Redis/ElastiCache broker URL, e.g. redis://:@my-redis.cache.amazonaws.com:6379/0"
+      destination: secrets_manager
+    - key: AIRFLOW__CORE__FERNET_KEY
+      description: "Fernet key for encrypting connection passwords (generate with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\")"
+      destination: secrets_manager
+    - key: AIRFLOW__API_AUTH__JWT_SECRET
+      description: "JWT secret for the Airflow API (generate with: openssl rand -hex 32)"
+      destination: secrets_manager
+    - key: _AIRFLOW_WWW_USER_PASSWORD
+      description: "Airflow admin user password for the initial setup"
+      destination: secrets_manager
+    - key: git_deploy_token
+      description: "Git token for repo clone on EC2 boot"
+      destination: secrets_manager
+  optional_secrets:
+    - key: _AIRFLOW_WWW_USER_USERNAME
+      description: "Airflow admin username (defaults to 'airflow')"
+      destination: secrets_manager
+    - key: DB_USER
+      description: "PostgreSQL username (defaults to 'airflow')"
+      destination: secrets_manager
+    - key: DB_PORT
+      description: "PostgreSQL port (defaults to 5432)"
+      destination: secrets_manager
+    - key: git_deploy_username
+      description: "Git username for HTTPS clone (defaults to x-token-auth)"
+      destination: secrets_manager
+    - key: EC2_SECURITY_GROUP_ID
+      description: "Additional security group ID to attach to EC2 instances"
+      destination: secrets_manager
+    - key: LB_SECURITY_GROUP_ID
+      description: "Additional security group ID to attach to the ALB"
+      destination: secrets_manager
+    - key: ALB_INTERNAL
+      description: "Set to 'true' to make the ALB internal-only (defaults to false)"
+      destination: secrets_manager
+    - key: KG_API_HOST
+      description: "Deploy Management API host"
+      destination: secrets_manager
+    - key: KG_API_TOKEN
+      description: "Bearer token for Deploy Management API"
+      destination: secrets_manager
+
+_templates_suffix: .jinja
+
+_exclude:
+  - copier.yml
+  - README.md
+  - .git
+  - .env
+  - __pycache__
+  - "*.pyc"
+  - "*.pyo"
+  - "pulumi/dwe-hydration.yaml"
+  - "dags/"
+  - "logs/"
+  - "plugins/"
+  - "config/"
+
+_skip_if_exists:
+  - .env.example
+
+project_name:
+  type: str
+  help: "Client project slug for cloud resource naming (lowercase, hyphens)"
+  validator: "{% if not (project_name | regex_search('^[a-z][a-z0-9-]+$')) %}Must be lowercase letters, numbers, hyphens{% endif %}"
+
+git_repo_url:
+  type: str
+  default: ""
+  when: false
+
+adapter_name:
+  type: str
+  default: dwe_airflow
+  when: false
+
+adapter_version:
+  type: str
+  default: v1.0.0
+  when: false
+
+environments:
+  type: yaml
+  default: "[dev, prod]"
+  help: "List of deployment environments"
+
+cloud_provider:
+  type: str
+  default: azure
+  choices:
+    - azure
+    - aws
+  when: false
+
+azure_location:
+  type: str
+  default: eastus
+  when: false
+
+aws_region:
+  type: str
+  default: us-east-1
+  x_dwe_editable: true
+  x_dwe_per_env: false
+
+instance_type:
+  type: str
+  default: r6i.large
+  help: "EC2 instance type. r6i.large (2 vCPU, 16 GB) is a good starting point; scale up for heavy workloads."
+  x_dwe_editable: true
+  x_dwe_per_env: true
+
+volume_size:
+  type: int
+  default: 100
+  help: "Root EBS volume size in GB. Airflow DAGs and logs require more space."
+  x_dwe_editable: true
+  x_dwe_per_env: true
+
+secret_id:
+  type: str
+  default: "DWE_DEPLOY_AIRFLOW"
+  help: "Secret name in AWS Secrets Manager holding all runtime credentials."
+  x_dwe_editable: true
+  x_dwe_per_env: false
