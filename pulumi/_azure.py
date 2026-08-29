@@ -293,7 +293,7 @@ app_gw = azure_native.network.ApplicationGateway(
     probes=[azure_native.network.ApplicationGatewayProbeArgs(
         name="healthProbe",
         protocol="Http", host="127.0.0.1",
-        path="/health",
+        path="/api/v2/version",
         interval=30, timeout=10, unhealthy_threshold=3,
     )],
     http_listeners=http_listeners,
