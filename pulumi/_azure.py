@@ -42,12 +42,19 @@ git_branch           = config.require("git_branch")
 secret_id            = config.require("secret_id")
 key_vault_name       = config.require("key_vault_name")
 azure_location       = config.get("azure_location") or "eastus"
-vm_size              = config.get("instance_type") or "Standard_D4s_v3"
+vm_size              = config.get("instance_type") or "Standard_E4s_v3"
 volume_size          = int(config.get("volume_size") or "100")
+redis_mode           = config.get("redis_mode") or "local"
 resource_group       = config.require("resource_group")
 subscription_id      = config.require("subscription_id")
 startup_code_version = config.get("startup_code_version") or ""
 app_port             = 8080
+
+_compose_files = (
+    "-f docker-compose.yml -f docker-compose.local-redis.yml"
+    if redis_mode == "local"
+    else "-f docker-compose.yml"
+)
 
 suffix = f"-{env}" if env != "prod" else ""
 tags = {
@@ -94,9 +101,11 @@ sql_alchemy_conn    = f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_
 celery_result_backend = f"db+postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 
 # ── Airflow runtime — validate required secrets ────────────────────────────────
-for _key in ("DB_HOST", "DB_PASS", "AIRFLOW__CELERY__BROKER_URL",
-             "AIRFLOW__CORE__FERNET_KEY", "AIRFLOW__API_AUTH__JWT_SECRET",
-             "_AIRFLOW_WWW_USER_PASSWORD"):
+_required_secrets = ["DB_HOST", "DB_PASS", "AIRFLOW__CORE__FERNET_KEY",
+                     "AIRFLOW__API_AUTH__JWT_SECRET", "_AIRFLOW_WWW_USER_PASSWORD"]
+if redis_mode == "managed":
+    _required_secrets.append("AIRFLOW__CELERY__BROKER_URL")
+for _key in _required_secrets:
     if not secrets.get(_key):
         raise ValueError(f"Required secret '{_key}' missing from Key Vault secret '{secret_id}'")
 
@@ -337,6 +346,7 @@ chmod 600 /home/ubuntu/airflow/.env
 # Inject Airflow database connection strings
 echo "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN={sql_alchemy_conn}" >> /home/ubuntu/airflow/.env
 echo "AIRFLOW__CELERY__RESULT_BACKEND={celery_result_backend}" >> /home/ubuntu/airflow/.env
+{"" if redis_mode == "managed" else 'echo "AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0" >> /home/ubuntu/airflow/.env'}
 
 # Create Airflow runtime directories and set ownership
 cd /home/ubuntu/airflow
@@ -344,8 +354,8 @@ mkdir -p dags logs config plugins
 chown -R 50000:0 dags logs config plugins
 
 # Run DB migration + admin user creation, then start services
-docker compose -f docker-compose.yml run --rm airflow-init
-docker compose -f docker-compose.yml up -d airflow-apiserver airflow-scheduler airflow-dag-processor airflow-worker airflow-triggerer
+docker compose {_compose_files} run --rm airflow-init
+docker compose {_compose_files} up -d airflow-apiserver airflow-scheduler airflow-dag-processor airflow-worker airflow-triggerer
 """
 custom_data = base64.b64encode(startup_script.encode()).decode()
 

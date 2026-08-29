@@ -1,0 +1,22 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: airflow_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+
+  airflow-scheduler:
+    depends_on:
+      - redis
+
+  airflow-worker:
+    depends_on:
+      - redis
+
+  airflow-triggerer:
+    depends_on:
+      - redis
+
+  airflow-apiserver:
+    depends_on:
+      - redis

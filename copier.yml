@@ -131,9 +131,6 @@ _dwe_hub:
     - key: DB_PASS
       description: "PostgreSQL master password"
       destination: secrets_manager
-    - key: AIRFLOW__CELERY__BROKER_URL
-      description: "Redis/ElastiCache broker URL, e.g. redis://:@my-redis.cache.amazonaws.com:6379/0"
-      destination: secrets_manager
     - key: AIRFLOW__CORE__FERNET_KEY
       description: "Fernet key for encrypting connection passwords (generate with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\")"
       destination: secrets_manager
@@ -147,6 +144,9 @@ _dwe_hub:
       description: "Git token for repo clone on EC2 boot"
       destination: secrets_manager
   optional_secrets:
+    - key: AIRFLOW__CELERY__BROKER_URL
+      description: "Redis/Elasticache broker URL — required only when redis_mode=managed; Pulumi injects redis://redis:6379/0 automatically when redis_mode=local"
+      destination: secrets_manager
     - key: _AIRFLOW_WWW_USER_USERNAME
       description: "Airflow admin username (defaults to 'airflow')"
       destination: secrets_manager
@@ -238,10 +238,20 @@ aws_region:
   x_dwe_editable: true
   x_dwe_per_env: false
 
+redis_mode:
+  type: str
+  default: local
+  choices:
+    - local
+    - managed
+  help: "Redis deployment: 'local' runs a Redis container on the VM (free, no SLA); 'managed' uses an external Redis (ElastiCache/Azure Cache) — set AIRFLOW__CELERY__BROKER_URL in secrets."
+  x_dwe_editable: true
+  x_dwe_per_env: false
+
 instance_type:
   type: str
-  default: r6i.large
-  help: "EC2 instance type. r6i.large (2 vCPU, 16 GB) is a good starting point; scale up for heavy workloads."
+  default: Standard_E4s_v3
+  help: "Azure VM size (e.g. Standard_E4s_v3 = 4 vCPU / 32 GB) or AWS EC2 type (e.g. r6i.xlarge). Standard_E4s_v3 handles a small team with moderate DAG load."
   x_dwe_editable: true
   x_dwe_per_env: true
 

@@ -1,7 +1,7 @@
 # Production: docker-compose -f docker-compose.yml up -d
 # Local dev:  docker-compose up -d  (merges override — adds local Redis + Postgres)
 
-x-airflow-image: &airflow-image apache/airflow:3.0.2
+x-airflow-image: &airflow-image apache/airflow:3.3.1
 
 x-airflow-common: &airflow-common
   image: *airflow-image
