@@ -19,10 +19,17 @@ import yaml
 # ─────────────────────────────────────────────────────────────────────────────
 # Hydration config — written by dwe-core at create-service / update-service time
 # ─────────────────────────────────────────────────────────────────────────────
-_dwe = yaml.safe_load((Path(__file__).parent / "dwe-hydration.yaml").read_text())
-project_name    = _dwe["project_name"]
-git_repo_url    = _dwe["git_repo_url"]
-adapter_version = _dwe["adapter_version"]
+_hydration = Path(__file__).parent / "dwe-hydration.yaml"
+_dwe         = yaml.safe_load(_hydration.read_text()) if _hydration.exists() else {}
+if _dwe:
+    project_name    = _dwe["project_name"]
+    git_repo_url    = _dwe["git_repo_url"]
+    adapter_version = _dwe["adapter_version"]
+else:
+    _cfg         = pulumi.Config()
+    project_name    = _cfg.get("project_name") or pulumi.get_project()
+    git_repo_url    = _cfg.get("git_repo_url") or ""
+    adapter_version = _cfg.get("adapter_version") or "v1.0.0"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stack Config
@@ -77,7 +84,7 @@ db_host = secrets["DB_HOST"]
 db_pass = secrets["DB_PASS"]
 db_user = secrets.get("DB_USER", "airflow")
 db_port = secrets.get("DB_PORT", "5432")
-db_name = f"airflow_{env}" if env != "prod" else "airflow"
+db_name = f"airflow_{env}"
 sql_alchemy_conn    = f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 celery_result_backend = f"db+postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 

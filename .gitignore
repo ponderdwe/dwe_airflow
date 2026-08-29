@@ -13,7 +13,6 @@ __pycache__/
 pulumi/.pulumi/
 pulumi/venv/
 pulumi/__pycache__/
-pulumi/dwe-hydration.yaml
 
 # macOS
 .DS_Store
