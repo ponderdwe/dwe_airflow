@@ -1,7 +1,8 @@
-# GitHub Actions — two-path deploy for branch {@ ENV_NAME @} → workspace {@ WORKSPACE_NAME @}
+# GitHub Actions — three-path deploy for branch {@ ENV_NAME @} → workspace {@ WORKSPACE_NAME @}
 #
-# Path 1 — pulumi/** changed   → pulumi preview (PR) or pulumi up (push)
-# Path 2 — app files changed,  → VMSS reimage / ASG instance refresh
+# Path 1 — pulumi/** changed        → pulumi preview (PR) or pulumi up (push)
+# Path 2 — dags/** changed only     → git pull on VM (no restart, DAGs are bind-mounted)
+# Path 3 — other app files changed, → VMSS reimage / ASG instance refresh
 #           pulumi NOT changed
 #
 # Required repository secrets:
@@ -37,6 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       infra: ${{ steps.filter.outputs.infra }}
+      dags: ${{ steps.filter.outputs.dags }}
       app: ${{ steps.filter.outputs.app }}
     steps:
       - uses: actions/checkout@v4
@@ -49,9 +51,12 @@ jobs:
           filters: |
             infra:
               - 'pulumi/**'
+            dags:
+              - 'dags/**'
             app:
               - '**'
               - '!pulumi/**'
+              - '!dags/**'
 
   # ── PR: preview infra changes ──────────────────────────────────────────────
   pulumi-preview:
@@ -247,7 +252,60 @@ jobs:
           PULUMI_CONFIG_PASSPHRASE: ""
 {% endif %}
 
-  # ── Push: redeploy app when only app files changed ─────────────────────────
+  # ── Push: git pull DAGs only — no restart needed (bind-mounted volume) ───────
+  deploy-dags:
+    needs: detect-changes
+    if: >
+      github.event_name == 'push' &&
+      needs.detect-changes.outputs.dags == 'true' &&
+      needs.detect-changes.outputs.app != 'true' &&
+      needs.detect-changes.outputs.infra != 'true'
+    runs-on: ubuntu-latest
+    steps:
+{% if CLOUD_PROVIDER == "azure" %}
+      - uses: azure/login@v2
+        with:
+          creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}"}'
+      - name: Git pull DAGs on VMSS
+        run: |
+          VMSS_NAME=$(az vmss list --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --query "[?tags.Project=='{@ PROJECT_NAME @}' && tags.Environment=='{@ WORKSPACE_NAME @}' && tags.ManagedBy=='Pulumi'].name | [0]" -o tsv)
+          INSTANCE_ID=$(az vmss list-instances --resource-group ${{ secrets.RESOURCE_GROUP }} --name "$VMSS_NAME" \
+            --query "[0].instanceId" -o tsv)
+          echo "Running git pull on VMSS $VMSS_NAME instance $INSTANCE_ID"
+          az vmss run-command invoke \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --name "$VMSS_NAME" \
+            --command-id RunShellScript \
+            --instance-id "$INSTANCE_ID" \
+            --scripts "cd /home/ubuntu/airflow && git pull" \
+            --output json
+{% else %}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: {@ AWS_REGION @}
+      - name: Git pull DAGs via SSM
+        run: |
+          INSTANCE_ID=$(aws autoscaling describe-auto-scaling-groups \
+            --filters \
+              "Name=tag:Project,Values={@ PROJECT_NAME @}" \
+              "Name=tag:Environment,Values={@ WORKSPACE_NAME @}" \
+              "Name=tag:ManagedBy,Values=Pulumi" \
+            --query "AutoScalingGroups[0].Instances[0].InstanceId" --output text)
+          echo "Running git pull on EC2 instance $INSTANCE_ID"
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["cd /home/ubuntu/airflow && git pull"]' \
+            --query "Command.CommandId" --output text)
+          aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID"
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query "[StandardOutputContent,StandardErrorContent]" --output text
+{% endif %}
+
+  # ── Push: redeploy app when non-dag app files changed ─────────────────────
   deploy-app:
     needs: detect-changes
     if: >
