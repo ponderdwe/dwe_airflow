@@ -102,10 +102,9 @@ git_deploy_username = secrets.get("git_deploy_username", "x-token-auth")
 db_host = secrets["DB_HOST"]
 db_pass = secrets["DB_PASS"]
 db_user = secrets.get("DB_USER", "airflow")
-db_port = secrets.get("DB_PORT", "5432")
 db_name = f"airflow_{env}"
-sql_alchemy_conn    = f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
-celery_result_backend = f"db+postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+sql_alchemy_conn      = f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:5432/{db_name}"
+celery_result_backend = f"db+postgresql://{db_user}:{db_pass}@{db_host}:5432/{db_name}"
 
 # ── Airflow runtime — validate required secrets ────────────────────────────────
 _required_secrets = ["DB_HOST", "DB_PASS", "AIRFLOW__CORE__FERNET_KEY",
