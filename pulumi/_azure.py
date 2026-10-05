@@ -349,14 +349,15 @@ git clone "https://$GIT_USER:$GIT_TOKEN@$REPO_PATH" /home/ubuntu/airflow
 git -C /home/ubuntu/airflow checkout {git_branch}
 git -C /home/ubuntu/airflow rev-parse HEAD > /home/ubuntu/airflow/.schema-version
 
-# Write .env from Key Vault secret key=value pairs
-echo "$SECRET_JSON" | jq -r 'to_entries[] | .key + "=" + (.value | tostring)' > /home/ubuntu/airflow/.env
-chmod 600 /home/ubuntu/airflow/.env
-
-# Inject Airflow database connection strings
-echo "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN={sql_alchemy_conn}" >> /home/ubuntu/airflow/.env
+# Write critical generated values FIRST — Docker Compose env_file uses first-occurrence wins,
+# so Key Vault may contain stale/wrong values for these keys; writing them first ensures they win.
+echo "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN={sql_alchemy_conn}" > /home/ubuntu/airflow/.env
 echo "AIRFLOW__CELERY__RESULT_BACKEND={celery_result_backend}" >> /home/ubuntu/airflow/.env
 {"" if redis_mode == "managed" else 'echo "AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0" >> /home/ubuntu/airflow/.env'}
+
+# Append Key Vault secrets — conflicting keys won't override the values written above
+echo "$SECRET_JSON" | jq -r 'to_entries[] | .key + "=" + (.value | tostring)' >> /home/ubuntu/airflow/.env
+chmod 600 /home/ubuntu/airflow/.env
 
 # Create Airflow runtime directories and set ownership
 cd /home/ubuntu/airflow

@@ -51,7 +51,7 @@ services:
     container_name: airflow_scheduler
     command: scheduler
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8974/health"]
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\""]
       interval: 30s
       timeout: 10s
       retries: 5
