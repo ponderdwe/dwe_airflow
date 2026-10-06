@@ -8,16 +8,16 @@ local_up:
       echo "Creating .env with generated secrets..."
       FERNET_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
       JWT_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-      cat > .env <<EOF
-AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
-AIRFLOW__API_AUTH__JWT_SECRET=${JWT_SECRET}
-_AIRFLOW_WWW_USER_USERNAME=airflow
-_AIRFLOW_WWW_USER_PASSWORD=airflow
-AIRFLOW_UID=50000
-
-# Trino connection (local — no auth):
-# AIRFLOW_CONN_DWE=trino://user@localhost:8080/hive
-EOF
+      {
+        echo "AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}"
+        echo "AIRFLOW__API_AUTH__JWT_SECRET=${JWT_SECRET}"
+        echo "_AIRFLOW_WWW_USER_USERNAME=airflow"
+        echo "_AIRFLOW_WWW_USER_PASSWORD=airflow"
+        echo "AIRFLOW_UID=50000"
+        echo ""
+        echo "# Trino connection (local — no auth):"
+        echo "# AIRFLOW_CONN_DWE=trino://user@localhost:8080/hive"
+      } > .env
       echo ".env created."
     fi
     docker compose -f docker-compose.yml -f docker-compose.override.yml build

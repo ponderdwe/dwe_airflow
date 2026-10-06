@@ -4,19 +4,34 @@ services:
     container_name: airflow_redis
     restart: unless-stopped
     command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
-
-  airflow-scheduler:
-    depends_on:
-      - redis
-
-  airflow-worker:
-    depends_on:
-      - redis
-
-  airflow-triggerer:
-    depends_on:
-      - redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   airflow-apiserver:
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+
+  airflow-scheduler:
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  airflow-dag-processor:
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  airflow-worker:
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  airflow-triggerer:
+    depends_on:
+      redis:
+        condition: service_healthy
