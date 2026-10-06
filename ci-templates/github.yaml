@@ -53,10 +53,12 @@ jobs:
               - 'pulumi/**'
             dags:
               - 'dags/**'
+              - 'dbt/**'
             app:
               - '**'
               - '!pulumi/**'
               - '!dags/**'
+              - '!dbt/**'
 
   # ── PR: preview infra changes ──────────────────────────────────────────────
   pulumi-preview:
