@@ -1,10 +1,11 @@
 # Production: docker-compose -f docker-compose.yml up -d
 # Local dev:  docker-compose up -d  (merges override — adds local Redis + Postgres)
 
-x-airflow-image: &airflow-image apache/airflow:3.3.1
-
 x-airflow-common: &airflow-common
-  image: *airflow-image
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: airflow-custom:3.3.1
   env_file:
     - .env
   environment: &airflow-common-env
@@ -26,6 +27,7 @@ x-airflow-common: &airflow-common
     - ./logs:/opt/airflow/logs
     - ./config:/opt/airflow/config
     - ./plugins:/opt/airflow/plugins
+    - ./dbt:/opt/airflow/dbt
   user: "50000:0"
   restart: unless-stopped
 
@@ -118,8 +120,8 @@ services:
     command:
       - -c
       - |
-        mkdir -p /opt/airflow/dags /opt/airflow/logs /opt/airflow/config /opt/airflow/plugins
-        chown -R 50000:0 /opt/airflow/dags /opt/airflow/logs /opt/airflow/config /opt/airflow/plugins
+        mkdir -p /opt/airflow/dags /opt/airflow/logs /opt/airflow/config /opt/airflow/plugins /opt/airflow/dbt
+        chown -R 50000:0 /opt/airflow/dags /opt/airflow/logs /opt/airflow/config /opt/airflow/plugins /opt/airflow/dbt
         exec /entrypoint airflow version
     healthcheck:
       disable: true

@@ -203,6 +203,7 @@ _exclude:
   - "*.pyo"
   - "pulumi/dwe-hydration.yaml"
   - "dags/"
+  - "dbt/"
   - "logs/"
   - "plugins/"
   - "config/"

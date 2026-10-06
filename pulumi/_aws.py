@@ -234,8 +234,8 @@ echo "AIRFLOW__CELERY__RESULT_BACKEND={celery_result_backend}" >> /home/ubuntu/a
 
 # Create Airflow runtime directories and set ownership
 cd /home/ubuntu/airflow
-mkdir -p dags logs config plugins
-chown -R 50000:0 dags logs config plugins
+mkdir -p dags logs config plugins dbt
+chown -R 50000:0 dags logs config plugins dbt
 
 # Run DB migration + admin user creation, then start services
 docker compose -f docker-compose.yml run --rm airflow-init

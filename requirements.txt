@@ -1,0 +1,4 @@
+apache-airflow-providers-trino>=5.0.0
+dbt-trino>=1.8.0
+pyiceberg[s3fs,adlfs]>=0.7.0
+pyarrow>=15.0.0

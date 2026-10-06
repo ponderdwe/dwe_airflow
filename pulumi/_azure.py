@@ -361,8 +361,8 @@ chmod 600 /home/ubuntu/airflow/.env
 
 # Create Airflow runtime directories and set ownership
 cd /home/ubuntu/airflow
-mkdir -p dags logs config plugins
-chown -R 50000:0 dags logs config plugins
+mkdir -p dags logs config plugins dbt
+chown -R 50000:0 dags logs config plugins dbt
 
 # Run DB migration + admin user creation, then start services
 docker compose {_compose_files} run --rm airflow-init
