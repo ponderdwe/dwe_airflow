@@ -354,6 +354,9 @@ git -C /home/ubuntu/airflow rev-parse HEAD > /home/ubuntu/airflow/.schema-versio
 echo "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN={sql_alchemy_conn}" > /home/ubuntu/airflow/.env
 echo "AIRFLOW__CELERY__RESULT_BACKEND={celery_result_backend}" >> /home/ubuntu/airflow/.env
 {"" if redis_mode == "managed" else 'echo "AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0" >> /home/ubuntu/airflow/.env'}
+# Airflow 3.x entrypoint derives DB_PORT from the broker URL (6379) instead of from
+# the SQL alchemy conn (5432) — set it explicitly so the pre-flight nc check uses the right port.
+echo "DB_PORT=5432" >> /home/ubuntu/airflow/.env
 
 # Append Key Vault secrets — conflicting keys won't override the values written above
 echo "$SECRET_JSON" | jq -r 'to_entries[] | .key + "=" + (.value | tostring)' >> /home/ubuntu/airflow/.env
