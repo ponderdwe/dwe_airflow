@@ -237,9 +237,13 @@ cd /home/ubuntu/airflow
 mkdir -p dags logs config plugins dbt
 chown -R 50000:0 dags logs config plugins dbt
 
+# Pull the versioned base image and build the prod layer
+AIRFLOW_DWE_VERSION=$(jq -r .adapter.version /home/ubuntu/airflow/dwe-state.json)
+export AIRFLOW_DWE_VERSION
+
 # Run DB migration + admin user creation, then start services
-docker compose -f docker-compose.yml run --rm airflow-init
-docker compose -f docker-compose.yml up -d airflow-apiserver airflow-scheduler airflow-dag-processor airflow-worker airflow-triggerer
+docker compose -f docker-compose.prod.yml run --rm airflow-init
+docker compose -f docker-compose.prod.yml up -d airflow-apiserver airflow-scheduler airflow-dag-processor airflow-worker airflow-triggerer
 """
 user_data = base64.b64encode(user_data_script.encode()).decode()
 

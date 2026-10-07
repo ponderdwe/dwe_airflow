@@ -51,9 +51,9 @@ startup_code_version = config.get("startup_code_version") or ""
 app_port             = 8080
 
 _compose_files = (
-    "-f docker-compose.yml -f docker-compose.local-redis.yml"
+    "-f docker-compose.prod.yml -f docker-compose.local-redis.yml"
     if redis_mode == "local"
-    else "-f docker-compose.yml"
+    else "-f docker-compose.prod.yml"
 )
 
 suffix = f"-{env}" if env != "prod" else ""
@@ -366,6 +366,10 @@ chmod 600 /home/ubuntu/airflow/.env
 cd /home/ubuntu/airflow
 mkdir -p dags logs config plugins dbt
 chown -R 50000:0 dags logs config plugins dbt
+
+# Pull the versioned base image and build the prod layer
+AIRFLOW_DWE_VERSION=$(jq -r .adapter.version /home/ubuntu/airflow/dwe-state.json)
+export AIRFLOW_DWE_VERSION
 
 # Run DB migration + admin user creation, then start services
 docker compose {_compose_files} run --rm airflow-init
