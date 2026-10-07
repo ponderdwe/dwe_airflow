@@ -1,29 +1,37 @@
 set dotenv-load := false
 
-# Generate .env if missing, build image, start stack with local Postgres + Redis
+# Generate .env secrets if missing, build image, start stack with local Postgres + Redis
 local_up:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [ ! -f .env ]; then
-      echo "Creating .env with generated secrets..."
-      FERNET_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
-      JWT_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-      {
-        echo "AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}"
-        echo "AIRFLOW__API_AUTH__JWT_SECRET=${JWT_SECRET}"
-        echo "_AIRFLOW_WWW_USER_USERNAME=airflow"
-        echo "_AIRFLOW_WWW_USER_PASSWORD=airflow"
-        echo "AIRFLOW_UID=50000"
-        echo ""
-        echo "# Trino connection (local — no auth):"
-        echo "# AIRFLOW_CONN_DWE=trino://user@localhost:8080/hive"
-      } > .env
-      echo ".env created."
-    fi
+    python3 scripts/gen_local_env.py
     docker compose -f docker-compose.yml -f docker-compose.override.yml build
     docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
     echo ""
-    echo "Airflow UI → http://localhost:8080  (airflow / airflow)"
+    echo "Airflow UI → http://localhost:8080  (check .env for admin password)"
+
+# Run Airflow locally using the production image (Dockerfile.prod) + local Postgres/Redis
+airflow:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python3 scripts/gen_local_env.py
+    VERSION=$(jq -r .adapter.version dwe-state.json)
+    echo "Building from pondered/airflow-dwe:$VERSION"
+    AIRFLOW_DWE_VERSION=$VERSION docker compose -f docker-compose.prod.yml -f docker-compose.override.yml up -d --build
+    echo ""
+    echo "Airflow UI → http://localhost:8080  (check .env for admin password)"
+
+# Build Dockerfile.prod (version from dwe-state.json) and start production stack
+prod_up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VERSION=$(jq -r .adapter.version dwe-state.json)
+    echo "Building from pondered/airflow-dwe:$VERSION"
+    AIRFLOW_DWE_VERSION=$VERSION docker compose -f docker-compose.prod.yml up -d --build
+
+# Stop production stack
+prod_down:
+    docker compose -f docker-compose.prod.yml down
 
 # Stop stack, keep volumes
 down:

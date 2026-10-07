@@ -1,0 +1,7 @@
+ARG AIRFLOW_DWE_VERSION=latest
+FROM pondered/airflow-dwe:${AIRFLOW_DWE_VERSION}
+USER airflow
+# Deployment-specific packages from this hydrated repo.
+# Add to requirements.prod.txt and re-run: just prod_up
+COPY requirements.prod.txt /opt/airflow/requirements.prod.txt
+RUN pip install --no-cache-dir -r /opt/airflow/requirements.prod.txt

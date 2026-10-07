@@ -14,5 +14,9 @@ pulumi/.pulumi/
 pulumi/venv/
 pulumi/__pycache__/
 
+# dbt build artifacts
+dbt/**/target/
+dbt/**/dbt_packages/
+
 # macOS
 .DS_Store

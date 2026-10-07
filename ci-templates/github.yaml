@@ -55,10 +55,9 @@ jobs:
               - 'dags/**'
               - 'dbt/**'
             app:
-              - '**'
-              - '!pulumi/**'
-              - '!dags/**'
-              - '!dbt/**'
+              - 'Dockerfile'
+              - 'requirements.txt'
+              - 'docker-compose*.yml'
 
   # ── PR: preview infra changes ──────────────────────────────────────────────
   pulumi-preview:
