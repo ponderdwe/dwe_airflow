@@ -32,7 +32,6 @@ def _read_existing(path: Path) -> dict:
 def main() -> None:
     existing = _read_existing(ENV_FILE)
 
-    password = secrets.token_urlsafe(16)
     candidates = {
         "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN": "postgresql+psycopg2://airflow:airflow@postgres/airflow",
         "AIRFLOW__CELERY__RESULT_BACKEND":     "db+postgresql://airflow:airflow@postgres/airflow",
@@ -40,7 +39,7 @@ def main() -> None:
         "AIRFLOW__CORE__FERNET_KEY":           _fernet_key(),
         "AIRFLOW__API_AUTH__JWT_SECRET":       secrets.token_hex(32),
         "_AIRFLOW_WWW_USER_USERNAME":          "airflow",
-        "_AIRFLOW_WWW_USER_PASSWORD":          password,
+        "_AIRFLOW_WWW_USER_PASSWORD":          "airflow",
     }
 
     to_write = {k: v for k, v in candidates.items() if not existing.get(k)}
@@ -57,8 +56,7 @@ def main() -> None:
             f.write(f"{key}={value}\n")
 
     print(f"[gen_local_env] Wrote {len(to_write)} key(s) to {ENV_FILE}")
-    if "_AIRFLOW_WWW_USER_PASSWORD" in to_write:
-        print(f"[gen_local_env] Airflow admin password: {to_write['_AIRFLOW_WWW_USER_PASSWORD']}")
+    print("[gen_local_env] Airflow UI → http://localhost:8080  (airflow / airflow)")
 
 
 if __name__ == "__main__":
