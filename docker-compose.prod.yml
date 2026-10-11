@@ -12,6 +12,7 @@ x-airflow-common: &airflow-common
   env_file:
     - .env
   environment: &airflow-common-env
+    PYTHONPATH: /opt/airflow
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
@@ -27,10 +28,12 @@ x-airflow-common: &airflow-common
     AIRFLOW_UID: "50000"
   volumes:
     - ./dags:/opt/airflow/dags
+    - ./include:/opt/airflow/include
     - ./logs:/opt/airflow/logs
     - ./config:/opt/airflow/config
     - ./plugins:/opt/airflow/plugins
     - ./dbt:/opt/airflow/dbt
+    - ./data:/opt/airflow/data
   user: "50000:0"
   restart: unless-stopped
 
@@ -130,8 +133,8 @@ services:
     command:
       - -c
       - |
-        mkdir -p /opt/airflow/dags /opt/airflow/logs /opt/airflow/config /opt/airflow/plugins /opt/airflow/dbt
-        chown -R 50000:0 /opt/airflow/dags /opt/airflow/logs /opt/airflow/config /opt/airflow/plugins /opt/airflow/dbt
+        mkdir -p /opt/airflow/dags /opt/airflow/include /opt/airflow/logs /opt/airflow/config /opt/airflow/plugins /opt/airflow/dbt
+        chown -R 50000:0 /opt/airflow/dags /opt/airflow/include /opt/airflow/logs /opt/airflow/config /opt/airflow/plugins /opt/airflow/dbt
         exec /entrypoint airflow version
     healthcheck:
       disable: true
