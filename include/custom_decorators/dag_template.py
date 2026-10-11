@@ -22,7 +22,9 @@ common_dag_default_args = {
 
 def dag_template(**kwargs):
     kwargs.pop('add_tasks', None)
-    kwargs['default_args'] = dict(common_dag_default_args, **kwargs.pop('default_args', {}))
+    kwargs['default_args'] = dict(
+        common_dag_default_args, **kwargs.pop('default_args', {})
+    )
 
     # Airflow 3 removed schedule_interval — convert to schedule
     schedule_interval = kwargs.pop('schedule_interval', None)
@@ -33,7 +35,9 @@ def dag_template(**kwargs):
         from airflow.timetables.trigger import CronTriggerTimetable
         kwargs['schedule'] = AssetOrTimeSchedule(
             timetable=CronTriggerTimetable(schedule_interval, timezone='UTC'),
-            assets=schedule if isinstance(schedule, (list, tuple)) else [schedule],
+            assets=(
+                schedule if isinstance(schedule, (list, tuple)) else [schedule]
+            ),
         )
     elif schedule_interval:
         kwargs['schedule'] = schedule_interval
@@ -57,7 +61,7 @@ def dag_template(**kwargs):
             for t in current_leaves:
                 t >> update_t
 
-        def factory(*args, **kwargs):
+        def factory():
             return dag(**dag_configurations)(f_with_asset_emit)()
         return factory
     return wrapper

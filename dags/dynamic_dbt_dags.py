@@ -22,11 +22,8 @@ from airflow.sdk import Asset
 from include.custom_decorators.dag_template import dag_template
 from include.custom_operators.dbt_operator import CustomDbtOperator
 
-# Connection ID for Trino/data warehouse — override with DBT_CONN_ID env var
-CONN_ID = os.environ.get('DBT_CONN_ID', 'EDW')
-
-# Path to the dbt project (must contain dbt_project.yml and profiles.yml)
-DBT_PROJECT_DIR = Path(os.environ['AIRFLOW_HOME']) / 'dbt' / os.environ.get('DBT_PROJECT_NAME', '')
+CONN_ID = 'TRINO'
+DBT_PROJECT_DIR = Path(os.environ['AIRFLOW_HOME']) / 'dbt' / 'TrinoDbt'
 manifest_path = DBT_PROJECT_DIR / 'target' / 'manifest.json'
 
 # ── Load manifest ──────────────────────────────────────────────────────────

@@ -22,8 +22,8 @@ from airflow.sdk import Asset
 from include.custom_decorators.dag_template import dag_template
 from include.custom_operators.dbt_operator import CustomDbtOperator
 
-CONN_ID = os.environ.get('DBT_CONN_ID', 'EDW')
-DBT_PROJECT_DIR = Path(os.environ['AIRFLOW_HOME']) / 'dbt' / os.environ.get('DBT_PROJECT_NAME', '')
+CONN_ID = 'TRINO'
+DBT_PROJECT_DIR = Path(os.environ['AIRFLOW_HOME']) / 'dbt' / 'TrinoDbt'
 
 jobs_file = Path(os.environ['AIRFLOW_HOME']) / 'dbt' / 'dbt_jobs.json'
 dbt_jobs = json.loads(jobs_file.read_text()) if jobs_file.exists() else []
