@@ -16,6 +16,7 @@ pulumi/__pycache__/
 
 # dbt build artifacts
 dbt/**/target/
+!dbt/**/target/manifest.json
 dbt/**/dbt_packages/
 
 # macOS
