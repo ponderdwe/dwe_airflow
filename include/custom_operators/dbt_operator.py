@@ -1,6 +1,6 @@
 from airflow.operators.bash import BashOperator
 from airflow.hooks.base import BaseHook
-import os
+import json
 
 
 class CustomDbtOperator(BashOperator):
@@ -8,36 +8,39 @@ class CustomDbtOperator(BashOperator):
     def __init__(
             self,
             *,
-            dbt_commands: str,
+            dbt_commands: str | list[str],
             dbt_project_path: str,
+            conn_id: str = 'EDW',
             run_dbt_deps: bool = False,
             **kwargs
     ):
-        self.dbt_project_path = dbt_project_path
-        self.dbt_commands = dbt_commands if isinstance(dbt_commands, list) else [dbt_commands]
-
+        self._conn_id = conn_id
+        dbt_cmds = dbt_commands if isinstance(dbt_commands, list) else [dbt_commands]
         if run_dbt_deps:
-            self.dbt_commands.insert(0, 'dbt deps')
+            dbt_cmds.insert(0, 'dbt deps')
 
-        target_flag = '-t prod' if os.environ.get('env', '') == 'prod' else ''
-
-        bash_commands = [
-            f'{cmd} --project-dir {self.dbt_project_path} --profiles-dir {self.dbt_project_path} {target_flag}'.strip()
-            for cmd in self.dbt_commands
-        ]
-        bash_command = ' ; '.join(bash_commands)
-
-        conn = BaseHook.get_connection('EDW')
+        # Connection loaded at execute() time to avoid import errors during DAG parsing
         super().__init__(
-            bash_command=bash_command,
-            env={
-                **os.environ,
-                'TRINO_DBNAME': conn.schema,
-                'TRINO_HOST': conn.host,
-                'TRINO_SCHEMA': 'dbt',
-                'TRINO_USER': conn.login,
-                'PYTHONWARNINGS': 'ignore:Unverified HTTPS request',
-                'TRINO_PASSWORD': conn.password if conn.password else '',
-            },
+            bash_command=' ; '.join([
+                f'{cmd} --project-dir {dbt_project_path} --profiles-dir {dbt_project_path}'
+                for cmd in dbt_cmds
+            ]),
+            append_env=True,
             **kwargs
         )
+
+    def execute(self, context):
+        conn = BaseHook.get_connection(self._conn_id)
+        extra = json.loads(conn.extra or '{}')
+        trino_env = extra.get('env', 'dev')
+
+        self.env = {
+            'TRINO_HOST':     conn.host or '',
+            'TRINO_USER':     conn.login or '',
+            'TRINO_PASSWORD': conn.password or '',
+            'TRINO_DBNAME':   conn.schema or 'iceberg',
+            'TRINO_SCHEMA':   extra.get('schema', 'silver'),
+            'TRINO_ENV':      trino_env,
+            'PYTHONWARNINGS': 'ignore:Unverified HTTPS request',
+        }
+        return super().execute(context)

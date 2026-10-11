@@ -27,11 +27,11 @@ def dag_template(**kwargs):
     schedule = kwargs.get('schedule')
 
     if schedule and schedule_interval:
-        from airflow.timetables.datasets import DatasetOrTimeSchedule
+        from airflow.timetables.assets import AssetOrTimeSchedule
         from airflow.timetables.trigger import CronTriggerTimetable
-        kwargs['schedule'] = DatasetOrTimeSchedule(
+        kwargs['schedule'] = AssetOrTimeSchedule(
             timetable=CronTriggerTimetable(schedule_interval, timezone='UTC'),
-            datasets=schedule if isinstance(schedule, (list, tuple)) else [schedule],
+            assets=schedule if isinstance(schedule, (list, tuple)) else [schedule],
         )
     elif schedule_interval:
         kwargs['schedule'] = schedule_interval
