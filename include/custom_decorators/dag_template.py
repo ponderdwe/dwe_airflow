@@ -1,4 +1,6 @@
-from airflow.decorators import dag
+from airflow.decorators import dag, task
+from airflow.sdk import Asset
+from airflow.sdk.definitions._internal.contextmanager import DagContext
 from pendulum import datetime
 from typing import Callable
 import functools
@@ -37,10 +39,25 @@ def dag_template(**kwargs):
         kwargs['schedule'] = schedule_interval
 
     dag_configurations = dict(common_dag_configurations, **kwargs)
+    dag_id = dag_configurations.get('dag_id', 'unknown')
 
     def wrapper(f: Callable):
         @functools.wraps(f)
+        def f_with_asset_emit():
+            f()
+
+            dag_obj = DagContext.get_current_dag()
+            current_leaves = list(dag_obj.leaves) if dag_obj else []
+
+            @task(task_id='update_asset', outlets=[Asset(dag_id)])
+            def update_asset():
+                pass
+
+            update_t = update_asset()
+            for t in current_leaves:
+                t >> update_t
+
         def factory(*args, **kwargs):
-            return dag(**dag_configurations)(f)()
+            return dag(**dag_configurations)(f_with_asset_emit)()
         return factory
     return wrapper

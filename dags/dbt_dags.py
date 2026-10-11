@@ -50,7 +50,6 @@ def build_dbt_job(job: dict) -> None:
             dbt_commands=job['dbt_command'],
             dbt_project_path=str(DBT_PROJECT_DIR),
             conn_id=CONN_ID,
-            outlets=[Asset(f'{name}_dbt')],
         )
 
     dag_func()

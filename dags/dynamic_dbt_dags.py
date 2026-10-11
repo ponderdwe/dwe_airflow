@@ -70,7 +70,7 @@ def build_dbt_dag(group: dict) -> None:
 
     # Build Asset-based schedule from inter-group deps (mirrors dbt_dags.sql logic)
     upstream_assets = [
-        Asset(f'{dep}_dbt') for dep in sorted(group_deps.get(name, []))
+        Asset(dep) for dep in sorted(group_deps.get(name, []))
     ]
     combine = {'or': op.or_, 'and': op.and_}.get(condition, op.or_)
     schedule = reduce(combine, upstream_assets) if upstream_assets else None
@@ -87,7 +87,6 @@ def build_dbt_dag(group: dict) -> None:
             dbt_commands=f'dbt build --select group:{name}',
             dbt_project_path=str(DBT_PROJECT_DIR),
             conn_id=CONN_ID,
-            outlets=[Asset(f'{name}_dbt')],
         )
 
     dag_func()
