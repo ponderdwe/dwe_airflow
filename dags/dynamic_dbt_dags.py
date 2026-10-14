@@ -19,10 +19,11 @@ from functools import reduce
 from pathlib import Path
 
 from airflow.sdk import Asset
+from include.airflow_utils.dag_utils import envify_connection
 from include.custom_decorators.dag_template import dag_template
 from include.custom_operators.dbt_operator import CustomDbtOperator
 
-CONN_ID = 'TRINO'
+CONN_ID = envify_connection('TRINO')
 DBT_PROJECT_DIR = Path(os.environ['AIRFLOW_HOME']) / 'dbt' / 'TrinoDbt'
 manifest_path = DBT_PROJECT_DIR / 'target' / 'manifest.json'
 

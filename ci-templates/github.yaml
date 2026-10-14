@@ -55,8 +55,8 @@ jobs:
               - 'dags/**'
               - 'dbt/**'
             app:
-              - 'Dockerfile'
-              - 'requirements.txt'
+              - 'Dockerfile.prod'
+              - 'requirements.prod.txt'
               - 'docker-compose*.yml'
 
   # ── PR: preview infra changes ──────────────────────────────────────────────
