@@ -324,8 +324,9 @@ if not use_common_lb:
 # ─────────────────────────────────────────────────────────────────────────────
 _azure_backend_kwargs = json.dumps({
     "vault_url": f"https://{key_vault_name}.vault.azure.net/",
-    "connections_prefix": "airflow/connections",
-    "variables_prefix": "airflow/variables",
+    "connections_prefix": "airflow--connections",
+    "variables_prefix": "airflow--variables",
+    "sep": "--",
 })
 
 startup_script = f"""#!/bin/bash
