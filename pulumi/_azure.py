@@ -349,7 +349,7 @@ apt-get update -y && apt-get install -y docker-ce docker-ce-cli containerd.io do
 ln -sf /usr/libexec/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
 
 # Fetch secrets from Key Vault via Managed Identity
-az login --identity --username {uami_client_id}
+az login --identity --client-id {uami_client_id}
 SECRET_JSON=$(az keyvault secret show --vault-name {key_vault_name} --name {secret_id} --query value -o tsv)
 
 GIT_USER=$(echo "$SECRET_JSON" | jq -r '.git_deploy_username // "x-token-auth"')
