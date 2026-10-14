@@ -91,7 +91,7 @@ _dwe_hub:
       cloud_provider: azure
     - key: AZURE_CLIENT_ID
       description: "Client ID of the User-Assigned Managed Identity attached to the VMSS — used by AzureKeyVaultBackend inside Docker to authenticate against Key Vault at runtime (different from the CI service principal AZURE_CLIENT_ID)"
-      destination: secrets_manager
+      destination: env_secret
       cloud_provider: azure
     - key: DNS_ZONE_NAME
       description: "Azure DNS zone name, e.g. myorg.com"
@@ -137,23 +137,23 @@ _dwe_hub:
       destination: secrets_manager
     - key: AIRFLOW__CORE__FERNET_KEY
       description: "Fernet key for encrypting connection passwords (generate with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\")"
-      destination: secrets_manager
+      destination: env_secret
     - key: AIRFLOW__API_AUTH__JWT_SECRET
       description: "JWT secret for the Airflow API (generate with: openssl rand -hex 32)"
-      destination: secrets_manager
+      destination: env_secret
     - key: _AIRFLOW_WWW_USER_PASSWORD
       description: "Airflow admin user password for the initial setup"
-      destination: secrets_manager
+      destination: env_secret
     - key: git_deploy_token
       description: "Git token for repo clone on EC2 boot"
       destination: secrets_manager
   optional_secrets:
     - key: AIRFLOW__CELERY__BROKER_URL
       description: "Redis/Elasticache broker URL — required only when redis_mode=managed; Pulumi injects redis://redis:6379/0 automatically when redis_mode=local"
-      destination: secrets_manager
+      destination: env_secret
     - key: _AIRFLOW_WWW_USER_USERNAME
       description: "Airflow admin username (defaults to 'airflow')"
-      destination: secrets_manager
+      destination: env_secret
     - key: DB_USER
       description: "PostgreSQL username (defaults to 'airflow')"
       destination: secrets_manager
@@ -284,6 +284,6 @@ volume_size:
 secret_id:
   type: str
   default: "DWE_DEPLOY_AIRFLOW"
-  help: "Secret name in AWS Secrets Manager holding all runtime credentials."
+  help: "Secret name in AWS Secrets Manager / Azure Key Vault holding infrastructure and deploy credentials (DB host/pass, git token, networking IDs). Only read by Pulumi at deploy time. The runtime env secret is derived automatically as <secret_id>-ENV."
   x_dwe_editable: true
   x_dwe_per_env: false

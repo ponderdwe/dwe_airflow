@@ -33,13 +33,20 @@ def main() -> None:
     existing = _read_existing(ENV_FILE)
 
     candidates = {
+        # Computed by Pulumi at deploy time — safe to hardcode for local dev
         "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN": "postgresql+psycopg2://airflow:airflow@postgres/airflow",
         "AIRFLOW__CELERY__RESULT_BACKEND":     "db+postgresql://airflow:airflow@postgres/airflow",
+        "DEPLOY_ENV":                          "local",
+        # Runtime secrets — generated locally, must be replaced with real values for prod
         "AIRFLOW__CELERY__BROKER_URL":         "redis://:@redis:6379/0",
         "AIRFLOW__CORE__FERNET_KEY":           _fernet_key(),
         "AIRFLOW__API_AUTH__JWT_SECRET":       secrets.token_hex(32),
         "_AIRFLOW_WWW_USER_USERNAME":          "airflow",
         "_AIRFLOW_WWW_USER_PASSWORD":          "airflow",
+        # Secrets backend — placeholders only, set real values in <secret_id>-ENV secret
+        "AIRFLOW__SECRETS__BACKEND":           "",
+        "AIRFLOW__SECRETS__BACKEND_KWARGS":    "",
+        "AZURE_CLIENT_ID":                     "",
     }
 
     to_write = {k: v for k, v in candidates.items() if not existing.get(k)}

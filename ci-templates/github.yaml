@@ -122,6 +122,7 @@ jobs:
         run: |
           pulumi stack select ${{ env.WORKSPACE }} 2>/dev/null || pulumi stack init ${{ env.WORKSPACE }}
           pulumi config set {@ PROJECT_NAME @}:cloud_provider {@ CLOUD_PROVIDER @} --stack ${{ env.WORKSPACE }}
+          pulumi config set {@ PROJECT_NAME @}:secret_id "${{ env.SM_SECRET }}" --stack ${{ env.WORKSPACE }} --plaintext
         working-directory: pulumi
         env:
           PULUMI_BACKEND_URL: ${{ secrets.PULUMI_S3_STATE }}
@@ -223,6 +224,7 @@ jobs:
           cd pulumi
           pulumi stack select ${{ env.WORKSPACE }} 2>/dev/null || pulumi stack init ${{ env.WORKSPACE }}
           pulumi config set {@ PROJECT_NAME @}:cloud_provider {@ CLOUD_PROVIDER @} --stack ${{ env.WORKSPACE }}
+          pulumi config set {@ PROJECT_NAME @}:secret_id "${{ env.SM_SECRET }}" --stack ${{ env.WORKSPACE }} --plaintext
           pulumi config set startup_code_version "${{ github.sha }}" --stack ${{ env.WORKSPACE }}
           pulumi up --yes --stack ${{ env.WORKSPACE }}
         env:

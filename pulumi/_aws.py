@@ -38,6 +38,7 @@ config = pulumi.Config()
 env                  = config.require("environment")
 git_branch           = config.require("git_branch")
 secret_id            = config.require("secret_id")
+env_secret_id        = config.get("env_secret_id") or f"{secret_id}-ENV"
 instance_type        = config.get("instance_type") or "r6i.large"
 volume_size          = int(config.get("volume_size") or "100")
 aws_region           = config.get("aws_region") or "us-east-1"
@@ -61,6 +62,7 @@ def get_secret(sid: str) -> dict:
     return json.loads(resp["SecretString"])
 
 secrets = get_secret(secret_id)
+env_secrets = get_secret(env_secret_id)
 
 # ── Infrastructure ────────────────────────────────────────────────────────────
 vpc_id                = secrets["VPC_ID"]
@@ -97,11 +99,13 @@ sql_alchemy_conn    = f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_
 celery_result_backend = f"db+postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 
 # ── Airflow runtime — validate presence; EC2 reads them from .env at boot ─────
-for _key in ("DB_HOST", "DB_PASS", "AIRFLOW__CELERY__BROKER_URL",
-             "AIRFLOW__CORE__FERNET_KEY", "AIRFLOW__API_AUTH__JWT_SECRET",
-             "_AIRFLOW_WWW_USER_PASSWORD"):
+for _key in ("DB_HOST", "DB_PASS"):
     if not secrets.get(_key):
         raise ValueError(f"Required secret '{_key}' missing from Secrets Manager secret '{secret_id}'")
+for _key in ("AIRFLOW__CELERY__BROKER_URL", "AIRFLOW__CORE__FERNET_KEY",
+             "AIRFLOW__API_AUTH__JWT_SECRET", "_AIRFLOW_WWW_USER_PASSWORD"):
+    if not env_secrets.get(_key):
+        raise ValueError(f"Required secret '{_key}' missing from Secrets Manager secret '{env_secret_id}'")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # IAM — EC2 role (SSM + Secrets Manager)
@@ -226,20 +230,21 @@ git clone "https://$GIT_USER:$GIT_TOKEN@$REPO_PATH" /home/ubuntu/airflow
 git -C /home/ubuntu/airflow checkout {git_branch}
 git -C /home/ubuntu/airflow rev-parse HEAD > /home/ubuntu/airflow/.schema-version
 
-# Write .env from all Secrets Manager key=value pairs
-echo "$SECRET_JSON" | jq -r 'to_entries[] | .key + "=" + (.value | tostring)' > /home/ubuntu/airflow/.env
-chmod 600 /home/ubuntu/airflow/.env
-
 # Create database in existing RDS cluster (idempotent)
 apt-get install -y postgresql-client
 PGPASSWORD={db_pass} psql -h {db_host} -U {db_user} -d postgres -c "CREATE DATABASE {db_name};" 2>/dev/null || true
 
-# Inject Airflow database connection strings
-echo "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN={sql_alchemy_conn}" >> /home/ubuntu/airflow/.env
+# Write computed values FIRST — these always win (first-occurrence wins in Docker Compose env_file)
+echo "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN={sql_alchemy_conn}" > /home/ubuntu/airflow/.env
 echo "AIRFLOW__CELERY__RESULT_BACKEND={celery_result_backend}" >> /home/ubuntu/airflow/.env
 echo "DEPLOY_ENV={env}" >> /home/ubuntu/airflow/.env
 echo "AIRFLOW__SECRETS__BACKEND=airflow.providers.amazon.aws.secrets.secrets_manager.SecretsManagerBackend" >> /home/ubuntu/airflow/.env
 echo 'AIRFLOW__SECRETS__BACKEND_KWARGS={_aws_backend_kwargs}' >> /home/ubuntu/airflow/.env
+
+# Fetch env secret and append all key=value pairs to .env
+ENV_SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id {env_secret_id} --region {aws_region} --query SecretString --output text)
+echo "$ENV_SECRET_JSON" | jq -r 'to_entries[] | .key + "=" + (.value | tostring)' >> /home/ubuntu/airflow/.env
+chmod 600 /home/ubuntu/airflow/.env
 
 # Create Airflow runtime directories and set ownership
 cd /home/ubuntu/airflow

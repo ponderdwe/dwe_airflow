@@ -40,6 +40,7 @@ config = pulumi.Config()
 env                  = config.require("environment")
 git_branch           = config.require("git_branch")
 secret_id            = config.require("secret_id")
+env_secret_id        = config.get("env_secret_id") or f"{secret_id}-ENV"
 key_vault_name       = config.require("key_vault_name")
 azure_location       = config.get("azure_location") or "eastus"
 vm_size              = config.get("instance_type") or "Standard_E4s_v3"
@@ -74,6 +75,7 @@ def get_secret(kv_name: str, sid: str) -> dict:
     return json.loads(secret.value)
 
 secrets = get_secret(key_vault_name, secret_id)
+env_secrets = get_secret(key_vault_name, env_secret_id)
 
 # ── Infrastructure ────────────────────────────────────────────────────────────
 vnet_id          = secrets["VNET_ID"]
@@ -107,14 +109,16 @@ sql_alchemy_conn      = f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:54
 celery_result_backend = f"db+postgresql://{db_user}:{db_pass}@{db_host}:5432/{db_name}"
 
 # ── Airflow runtime — validate required secrets ────────────────────────────────
-_required_secrets = ["DB_HOST", "DB_PASS", "AIRFLOW__CORE__FERNET_KEY",
-                     "AIRFLOW__API_AUTH__JWT_SECRET", "_AIRFLOW_WWW_USER_PASSWORD",
-                     "AZURE_CLIENT_ID"]
-if redis_mode == "managed":
-    _required_secrets.append("AIRFLOW__CELERY__BROKER_URL")
-for _key in _required_secrets:
+for _key in ("DB_HOST", "DB_PASS"):
     if not secrets.get(_key):
         raise ValueError(f"Required secret '{_key}' missing from Key Vault secret '{secret_id}'")
+_required_env_secrets = ["AIRFLOW__CORE__FERNET_KEY", "AIRFLOW__API_AUTH__JWT_SECRET",
+                         "_AIRFLOW_WWW_USER_PASSWORD", "AZURE_CLIENT_ID"]
+if redis_mode == "managed":
+    _required_env_secrets.append("AIRFLOW__CELERY__BROKER_URL")
+for _key in _required_env_secrets:
+    if not env_secrets.get(_key):
+        raise ValueError(f"Required secret '{_key}' missing from Key Vault secret '{env_secret_id}'")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # User-assigned Managed Identity (used by VMSS to read Key Vault)
@@ -368,8 +372,9 @@ echo "DEPLOY_ENV={env}" >> /home/ubuntu/airflow/.env
 echo "AIRFLOW__SECRETS__BACKEND=airflow.providers.microsoft.azure.secrets.key_vault.AzureKeyVaultBackend" >> /home/ubuntu/airflow/.env
 echo 'AIRFLOW__SECRETS__BACKEND_KWARGS={_azure_backend_kwargs}' >> /home/ubuntu/airflow/.env
 
-# Append Key Vault secrets — conflicting keys won't override the values written above
-echo "$SECRET_JSON" | jq -r 'to_entries[] | .key + "=" + (.value | tostring)' >> /home/ubuntu/airflow/.env
+# Fetch env secret and append all key=value pairs to .env
+ENV_SECRET_JSON=$(az keyvault secret show --vault-name {key_vault_name} --name {env_secret_id} --query value -o tsv)
+echo "$ENV_SECRET_JSON" | jq -r 'to_entries[] | .key + "=" + (.value | tostring)' >> /home/ubuntu/airflow/.env
 chmod 600 /home/ubuntu/airflow/.env
 
 # Create Airflow runtime directories and set ownership
