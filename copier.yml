@@ -89,10 +89,6 @@ _dwe_hub:
       description: "SSH public key for VM access (Azure)"
       destination: secrets_manager
       cloud_provider: azure
-    - key: AZURE_CLIENT_ID
-      description: "Client ID of the User-Assigned Managed Identity attached to the VMSS — used by AzureKeyVaultBackend inside Docker to authenticate against Key Vault at runtime (different from the CI service principal AZURE_CLIENT_ID)"
-      destination: env_secret
-      cloud_provider: azure
     - key: DNS_ZONE_NAME
       description: "Azure DNS zone name, e.g. myorg.com"
       destination: secrets_manager

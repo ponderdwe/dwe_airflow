@@ -113,12 +113,12 @@ for _key in ("DB_HOST", "DB_PASS"):
     if not secrets.get(_key):
         raise ValueError(f"Required secret '{_key}' missing from Key Vault secret '{secret_id}'")
 _required_env_secrets = ["AIRFLOW__CORE__FERNET_KEY", "AIRFLOW__API_AUTH__JWT_SECRET",
-                         "_AIRFLOW_WWW_USER_PASSWORD", "AZURE_CLIENT_ID"]
+                         "_AIRFLOW_WWW_USER_PASSWORD"]
 if redis_mode == "managed":
     _required_env_secrets.append("AIRFLOW__CELERY__BROKER_URL")
 for _key in _required_env_secrets:
     if not env_secrets.get(_key):
-        raise ValueError(f"Required secret '{_key}' missing from Key Vault secret '{env_secret_id}'")
+        raise ValueError(f"Required secret '{_key}' missing from Key Vault secret '{env_secret_id}'}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # User-assigned Managed Identity (used by VMSS to read Key Vault)
@@ -329,7 +329,8 @@ _azure_backend_kwargs = json.dumps({
     "sep": "--",
 })
 
-startup_script = f"""#!/bin/bash
+def _make_custom_data(uami_client_id: str) -> str:
+    script = f"""#!/bin/bash
 set -e
 exec > >(tee /var/log/airflow-init.log | logger -t airflow-init) 2>&1
 
@@ -348,7 +349,7 @@ apt-get update -y && apt-get install -y docker-ce docker-ce-cli containerd.io do
 ln -sf /usr/libexec/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
 
 # Fetch secrets from Key Vault via Managed Identity
-az login --identity
+az login --identity --username {uami_client_id}
 SECRET_JSON=$(az keyvault secret show --vault-name {key_vault_name} --name {secret_id} --query value -o tsv)
 
 GIT_USER=$(echo "$SECRET_JSON" | jq -r '.git_deploy_username // "x-token-auth"')
@@ -366,6 +367,7 @@ git -C /home/ubuntu/airflow rev-parse HEAD > /home/ubuntu/airflow/.schema-versio
 echo "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN={sql_alchemy_conn}" > /home/ubuntu/airflow/.env
 echo "AIRFLOW__CELERY__RESULT_BACKEND={celery_result_backend}" >> /home/ubuntu/airflow/.env
 {"" if redis_mode == "managed" else 'echo "AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0" >> /home/ubuntu/airflow/.env'}
+echo "AZURE_CLIENT_ID={uami_client_id}" >> /home/ubuntu/airflow/.env
 echo "DEPLOY_ENV={env}" >> /home/ubuntu/airflow/.env
 echo "AIRFLOW__SECRETS__BACKEND=airflow.providers.microsoft.azure.secrets.key_vault.AzureKeyVaultBackend" >> /home/ubuntu/airflow/.env
 echo 'AIRFLOW__SECRETS__BACKEND_KWARGS={_azure_backend_kwargs}' >> /home/ubuntu/airflow/.env
@@ -388,7 +390,10 @@ export AIRFLOW_DWE_VERSION
 docker compose {_compose_files} run --rm airflow-init
 docker compose {_compose_files} up -d airflow-apiserver airflow-scheduler airflow-dag-processor airflow-worker airflow-triggerer
 """
-custom_data = base64.b64encode(startup_script.encode()).decode()
+    return base64.b64encode(script.encode()).decode()
+
+
+custom_data = identity.client_id.apply(_make_custom_data)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # VMSS
