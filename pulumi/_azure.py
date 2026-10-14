@@ -118,7 +118,7 @@ if redis_mode == "managed":
     _required_env_secrets.append("AIRFLOW__CELERY__BROKER_URL")
 for _key in _required_env_secrets:
     if not env_secrets.get(_key):
-        raise ValueError(f"Required secret '{_key}' missing from Key Vault secret '{env_secret_id}'}")
+        raise ValueError(f"Required secret '{_key}' missing from Key Vault secret '{env_secret_id}'")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # User-assigned Managed Identity (used by VMSS to read Key Vault)
