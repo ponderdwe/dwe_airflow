@@ -108,7 +108,8 @@ celery_result_backend = f"db+postgresql://{db_user}:{db_pass}@{db_host}:5432/{db
 
 # ── Airflow runtime — validate required secrets ────────────────────────────────
 _required_secrets = ["DB_HOST", "DB_PASS", "AIRFLOW__CORE__FERNET_KEY",
-                     "AIRFLOW__API_AUTH__JWT_SECRET", "_AIRFLOW_WWW_USER_PASSWORD"]
+                     "AIRFLOW__API_AUTH__JWT_SECRET", "_AIRFLOW_WWW_USER_PASSWORD",
+                     "AZURE_CLIENT_ID"]
 if redis_mode == "managed":
     _required_secrets.append("AIRFLOW__CELERY__BROKER_URL")
 for _key in _required_secrets:
@@ -317,6 +318,12 @@ if not use_common_lb:
 # ─────────────────────────────────────────────────────────────────────────────
 # Startup script — install Docker, clone repo, write .env, start Airflow
 # ─────────────────────────────────────────────────────────────────────────────
+_azure_backend_kwargs = json.dumps({
+    "vault_url": f"https://{key_vault_name}.vault.azure.net/",
+    "connections_prefix": "airflow/connections",
+    "variables_prefix": "airflow/variables",
+})
+
 startup_script = f"""#!/bin/bash
 set -e
 exec > >(tee /var/log/airflow-init.log | logger -t airflow-init) 2>&1
@@ -357,6 +364,9 @@ echo "AIRFLOW__CELERY__RESULT_BACKEND={celery_result_backend}" >> /home/ubuntu/a
 # Airflow 3.x entrypoint derives DB_PORT from the broker URL (6379) instead of from
 # the SQL alchemy conn (5432) — set it explicitly so the pre-flight nc check uses the right port.
 echo "DB_PORT=5432" >> /home/ubuntu/airflow/.env
+echo "DEPLOY_ENV={env}" >> /home/ubuntu/airflow/.env
+echo "AIRFLOW__SECRETS__BACKEND=airflow.providers.microsoft.azure.secrets.key_vault.AzureKeyVaultBackend" >> /home/ubuntu/airflow/.env
+echo 'AIRFLOW__SECRETS__BACKEND_KWARGS={_azure_backend_kwargs}' >> /home/ubuntu/airflow/.env
 
 # Append Key Vault secrets — conflicting keys won't override the values written above
 echo "$SECRET_JSON" | jq -r 'to_entries[] | .key + "=" + (.value | tostring)' >> /home/ubuntu/airflow/.env

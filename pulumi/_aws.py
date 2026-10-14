@@ -187,6 +187,12 @@ ubuntu_ami = aws.ec2.get_ami(
 # ─────────────────────────────────────────────────────────────────────────────
 # User data — install Docker, clone repo, write .env, start Airflow
 # ─────────────────────────────────────────────────────────────────────────────
+_aws_backend_kwargs = json.dumps({
+    "connections_prefix": "airflow/connections",
+    "variables_prefix": "airflow/variables",
+    "region_name": aws_region,
+})
+
 user_data_script = f"""#!/bin/bash
 set -e
 exec > >(tee /var/log/airflow-init.log | logger -t airflow-init) 2>&1
@@ -231,6 +237,9 @@ PGPASSWORD={db_pass} psql -h {db_host} -U {db_user} -d postgres -c "CREATE DATAB
 # Inject Airflow database connection strings
 echo "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN={sql_alchemy_conn}" >> /home/ubuntu/airflow/.env
 echo "AIRFLOW__CELERY__RESULT_BACKEND={celery_result_backend}" >> /home/ubuntu/airflow/.env
+echo "DEPLOY_ENV={env}" >> /home/ubuntu/airflow/.env
+echo "AIRFLOW__SECRETS__BACKEND=airflow.providers.amazon.aws.secrets.secrets_manager.SecretsManagerBackend" >> /home/ubuntu/airflow/.env
+echo 'AIRFLOW__SECRETS__BACKEND_KWARGS={_aws_backend_kwargs}' >> /home/ubuntu/airflow/.env
 
 # Create Airflow runtime directories and set ownership
 cd /home/ubuntu/airflow
