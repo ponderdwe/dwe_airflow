@@ -9,7 +9,11 @@ DEPLOY_ENV (written to .env by Pulumi at VM boot) drives the fallback chain:
 
 Usage:
     from include.airflow_utils.dag_utils import envify_connection
-    conn = envify_connection('TRINO')  # → 'TRINO_prod', 'TRINO_dev', etc.
+    conn = envify_connection('TRINO')  # → 'TRINO_prod' or 'TRINO-prod' on Azure
+
+The separator between the base conn_id and the env suffix is '-' when the
+Azure Key Vault secrets backend is active (KV normalises '_' to '-' in secret
+names), and '_' otherwise.
 
 Airflow 3 dag-processor blocks ORM access during DAG parsing, so connection
 existence is checked via a bulk DB query (fresh SQLAlchemy engine) and falls
@@ -49,6 +53,14 @@ def log_env_resolutions() -> None:
 
 def _get_deploy_env() -> str:
     return os.environ.get('DEPLOY_ENV', 'PROD').upper()
+
+
+def _env_sep() -> str:
+    """Return '-' for Azure KV backend (normalises '_' → '-'), '_' otherwise."""
+    backend = os.environ.get('AIRFLOW__SECRETS__BACKEND', '')
+    if 'azure' in backend.lower() or 'key_vault' in backend.lower():
+        return '-'
+    return '_'
 
 
 def _db_fetch(query: str) -> set[str] | None:
@@ -144,8 +156,9 @@ def resolve_connection(conn_id_base: str) -> str:
     """Return the first existing connection ID in the DEPLOY_ENV fallback chain."""
     current_env = _get_deploy_env()
     chain = _ENV_FALLBACK_CHAINS.get(current_env, [current_env.lower()])
+    sep = _env_sep()
     for env_suffix in chain:
-        candidate = f'{conn_id_base}_{env_suffix}'
+        candidate = f'{conn_id_base}{sep}{env_suffix}'
         f = _get_exists_executor().submit(_check_connection, candidate)
         try:
             f.result(timeout=5.0)
@@ -155,7 +168,7 @@ def resolve_connection(conn_id_base: str) -> str:
             pass
         except Exception:
             continue
-    resolved = f'{conn_id_base}_{current_env.lower()}'
+    resolved = f'{conn_id_base}{sep}{current_env.lower()}'
     _env_resolutions[f'conn:{conn_id_base}'] = f'{resolved} (fallback default)'
     return resolved
 
